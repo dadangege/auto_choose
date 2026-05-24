@@ -1,0 +1,14 @@
+{
+  "name": "insurance-qa-orchestrator",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Insurance QA orchestrator prototype with wiki retrieval, rules, streaming LLM output, and card rendering.",
+  "scripts": {
+    "start": "node insurance-qa/web/server.js",
+    "test": "node insurance-qa/scripts/test_orchestrator.js && python3 insurance-qa/scripts/test_orchestrator.py && python3 -m json.tool insurance-qa/schemas/cards.schema.json >/dev/null"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
+

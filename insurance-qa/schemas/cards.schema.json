@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.insurance-qa/cards.schema.json",
+  "title": "Insurance QA Cards",
+  "type": "object",
+  "oneOf": [
+    { "$ref": "#/$defs/claimcard" },
+    { "$ref": "#/$defs/coveragecard" },
+    { "$ref": "#/$defs/policyselectcard" },
+    { "$ref": "#/$defs/materialcard" },
+    { "$ref": "#/$defs/hospitalcard" },
+    { "$ref": "#/$defs/enrollmentcard" }
+  ],
+  "$defs": {
+    "condition": {
+      "type": "object",
+      "required": ["name", "status", "description"],
+      "properties": {
+        "name": { "type": "string" },
+        "status": { "type": "string", "enum": ["已满足", "未满足", "待确认"] },
+        "description": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "claimcard": {
+      "type": "object",
+      "required": ["type", "claim_scene", "conditions", "missing_info", "notes"],
+      "properties": {
+        "type": { "const": "claimcard" },
+        "claim_scene": {
+          "type": "object",
+          "required": ["claim_type", "coverage_name", "support_status", "confidence", "reason"],
+          "properties": {
+            "claim_type": { "type": "string" },
+            "coverage_name": { "type": "string" },
+            "support_status": { "type": "string", "enum": ["支持", "不支持", "待确认"] },
+            "confidence": { "type": "string", "enum": ["高", "中", "低"] },
+            "reason": { "type": "string" }
+          },
+          "additionalProperties": true
+        },
+        "conditions": { "type": "array", "items": { "$ref": "#/$defs/condition" } },
+        "estimated_payment": { "type": "object" },
+        "missing_info": { "type": "array", "items": { "type": "string" } },
+        "notes": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": true
+    },
+    "coveragecard": {
+      "type": "object",
+      "required": ["type", "coverage"],
+      "properties": {
+        "type": { "const": "coveragecard" },
+        "coverage": {
+          "type": "object",
+          "required": ["name", "summary"],
+          "properties": {
+            "name": { "type": "string" },
+            "summary": { "type": "string" },
+            "insured_amount": { "type": "string" },
+            "deductible": { "type": "string" },
+            "pay_ratio": { "type": "string" },
+            "hospital_scope": { "type": "string" },
+            "key_limits": { "type": "array", "items": { "type": "string" } }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    },
+    "policyselectcard": {
+      "type": "object",
+      "required": ["type", "title", "reason", "options"],
+      "properties": {
+        "type": { "const": "policyselectcard" },
+        "title": { "type": "string" },
+        "reason": { "type": "string" },
+        "options": { "type": "array", "items": { "type": "object" } }
+      },
+      "additionalProperties": true
+    },
+    "materialcard": {
+      "type": "object",
+      "required": ["type", "claim_type"],
+      "properties": {
+        "type": { "const": "materialcard" },
+        "claim_type": { "type": "string" },
+        "materials": { "type": "array", "items": { "type": "object" } },
+        "missing_info": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": true
+    },
+    "hospitalcard": {
+      "type": "object",
+      "required": ["type", "title", "scopes"],
+      "properties": {
+        "type": { "const": "hospitalcard" },
+        "title": { "type": "string" },
+        "scopes": { "type": "array", "items": { "type": "object" } },
+        "notes": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": true
+    },
+    "enrollmentcard": {
+      "type": "object",
+      "required": ["type", "title", "eligible_groups"],
+      "properties": {
+        "type": { "const": "enrollmentcard" },
+        "title": { "type": "string" },
+        "eligible_groups": { "type": "array", "items": { "type": "string" } },
+        "requirements": { "type": "array", "items": { "type": "string" } },
+        "notes": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": true
+    }
+  }
+}
+
