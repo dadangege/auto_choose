@@ -55,6 +55,41 @@ For product selection:
 }
 ```
 
+For semantic support cards, use these compact shapes:
+
+```json
+{
+  "type": "drugcheckcard",
+  "title": "奥希替尼报销条件检查",
+  "drug_name": "甲磺酸奥希替尼片",
+  "directory_status": "目录内/待确认",
+  "policy_version": "新市民版",
+  "checks": [
+    { "name": "药品目录", "status": "已满足", "description": "" },
+    { "name": "适应症", "status": "待确认", "description": "" }
+  ],
+  "source_anchors": ["D001", "D002"]
+}
+```
+
+```json
+{
+  "type": "evidencecard",
+  "title": "判断依据",
+  "anchors": [
+    { "id": "R002", "fact": "新市民版未走当地医保时，非既往症20%，既往症10%。" }
+  ]
+}
+```
+
+```json
+{
+  "type": "nextstepcard",
+  "title": "还需要确认",
+  "items": ["住院医院是否符合条款要求", "费用是否属于特定住院自费医疗费用"]
+}
+```
+
 ## Multi-Intent Rendering
 
 When a message has multiple independent intents:

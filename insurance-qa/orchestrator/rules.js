@@ -69,6 +69,44 @@ function enrollmentCard() {
   };
 }
 
+function versionCompareCard() {
+  return {
+    type: "versioncomparecard",
+    title: "2025版沪惠保三版差异",
+    versions: [
+      {
+        version: "普通版",
+        eligible_group: "上海基本医保参保人员",
+        hospital_claim_gate: "需经上海基本医疗保险结算后方可申请住院责任",
+      },
+      {
+        version: "关爱版",
+        eligible_group: "上海市市民社区医疗互助帮困计划参加人员",
+        hospital_claim_gate: "需先获得互助帮困计划医疗费用补助",
+      },
+      {
+        version: "新市民版",
+        eligible_group: "上海部分大型企业工作且参加当地医保的务工人员",
+        hospital_claim_gate: "当地医保结算状态影响赔付比例",
+      },
+    ],
+    notes: ["用户只说沪惠保时，不能默认按普通版判断。"],
+  };
+}
+
+function exclusionCard() {
+  return {
+    type: "exclusioncard",
+    title: "责任限制提醒",
+    reason: "需要结合具体责任判断是否触发除外责任或不承担给付的情形。",
+    exclusions: [
+      "药品在目录中仍需符合适应症、处方、渠道、医保报销和慈善援助等条件",
+      "国内特药和海外特殊药品每次处方超过一个月以上部分不承担给付责任",
+      "住院责任需符合医院范围、费用范围和版本对应的前置结算条件",
+    ],
+  };
+}
+
 function drugCard(policy, slots) {
   const hasOsimertinib = slots.drug_name === "甲磺酸奥希替尼片";
   return {
@@ -214,6 +252,7 @@ function claimProcessCard() {
 function evaluateIntent(query, route, slots, intent) {
   if (route.policy.status !== "confirmed") return policySelectCard(route.policy, intent);
   if (intent.type === "coverage_explanation") return coverageCard(route.policy.version);
+  if (intent.type === "version_comparison") return versionCompareCard();
   if (intent.type === "hospital_scope") return hospitalCard();
   if (intent.type === "enrollment") return enrollmentCard();
   if (intent.type === "domestic_drug") return drugCard(route.policy, slots);
@@ -221,6 +260,7 @@ function evaluateIntent(query, route, slots, intent) {
   if (intent.type === "hospital_self_pay") return hospitalClaimCard(route.policy, slots);
   if (intent.type === "materials") return materialCard();
   if (intent.type === "claim_process") return claimProcessCard();
+  if (intent.type === "exclusion") return exclusionCard();
   return coverageCard(route.policy.version);
 }
 
@@ -236,4 +276,3 @@ function evaluateRules(query, route, slots) {
 module.exports = {
   evaluateRules,
 };
-

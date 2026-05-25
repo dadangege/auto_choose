@@ -5,6 +5,11 @@ const REQUIRED_BY_TYPE = {
   materialcard: ["type", "claim_type"],
   hospitalcard: ["type", "title", "scopes"],
   enrollmentcard: ["type", "title", "eligible_groups"],
+  versioncomparecard: ["type", "title", "versions"],
+  drugcheckcard: ["type", "title", "checks"],
+  evidencecard: ["type", "title", "anchors"],
+  nextstepcard: ["type", "title", "items"],
+  exclusioncard: ["type", "title", "reason"],
 };
 
 function validateCard(card) {
@@ -36,4 +41,3 @@ module.exports = {
   validateCard,
   validateCards,
 };
-

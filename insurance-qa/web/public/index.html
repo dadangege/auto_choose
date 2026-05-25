@@ -49,6 +49,20 @@
                 <small>发送全部规则</small>
               </span>
             </label>
+            <label>
+              <input type="radio" name="promptMode" value="report">
+              <span>
+                <strong>解读报告</strong>
+                <small>结构化产品说明</small>
+              </span>
+            </label>
+            <label>
+              <input type="radio" name="promptMode" value="two_stage">
+              <span>
+                <strong>两段式编排</strong>
+                <small>先草稿再补齐</small>
+              </span>
+            </label>
           </fieldset>
 
           <label class="field">
@@ -60,6 +74,7 @@
             <button class="primary" id="runButton" type="submit">运行真实测试</button>
             <button class="secondary" id="previewButton" type="button">只看路由</button>
             <button class="secondary" id="demoButton" type="button">卡片预览</button>
+            <button class="secondary" id="readoutButton" type="button">产品解读</button>
           </div>
         </form>
 
@@ -121,6 +136,14 @@
             <strong id="statFirst">-</strong>
           </article>
           <article>
+            <span>第1段</span>
+            <strong id="statStageOne">-</strong>
+          </article>
+          <article>
+            <span>第2段</span>
+            <strong id="statStageTwo">-</strong>
+          </article>
+          <article>
             <span>总耗时</span>
             <strong id="statTotal">-</strong>
           </article>
@@ -130,13 +153,74 @@
           </article>
         </div>
 
+        <section class="capability-panel" aria-label="能力总览">
+          <div class="panel-title">
+            <h3>现在这套能测什么</h3>
+            <span>能力地图</span>
+          </div>
+          <div class="capability-grid">
+            <article>
+              <strong>本地编排</strong>
+              <p>识别产品版本、拆分多意图、抽取金额/药品/医保结算等槽位。</p>
+            </article>
+            <article>
+              <strong>卡片规划</strong>
+              <p>为每个 intent 分配主卡、辅助卡、证据锚点和回答任务。</p>
+            </article>
+            <article>
+              <strong>真实模型测试</strong>
+              <p>把编排结果发给 MiniMax，检查它是否按内容 + JSON 顺序输出。</p>
+            </article>
+            <article>
+              <strong>前端渲染</strong>
+              <p>把 fenced JSON 解析成理赔、药品核验、证据链、下一步等卡片。</p>
+            </article>
+          </div>
+          <div class="button-help">
+            <div><strong>只看路由</strong><span>不调模型，只看本地识别和 cardPlan。</span></div>
+            <div><strong>运行真实测试</strong><span>调 MiniMax，验证模型输出是否符合编排。</span></div>
+            <div><strong>产品解读</strong><span>不调模型，看报告型 UI 和卡片展示样例。</span></div>
+          </div>
+        </section>
+
+        <section class="plan-panel" aria-label="本地编排计划">
+          <div class="panel-title">
+            <h3>本地编排计划</h3>
+            <span id="planCount">0</span>
+          </div>
+          <div id="planList" class="plan-list empty">点「只看路由」后，这里会显示每个问题拆成什么 intent、应该出哪些卡。</div>
+        </section>
+
         <div class="output-layout">
           <section class="panel">
             <div class="panel-title">
-              <h3>LLM 原文</h3>
+              <h3 id="outputTitle">LLM 原文</h3>
               <button class="small" id="copyButton" type="button">复制</button>
             </div>
+            <div id="stageSplit" class="stage-split" hidden>
+              <article class="stage-card">
+                <div class="stage-head">
+                  <div>
+                    <span>第 1 段</span>
+                    <strong>结构草稿 answer_plan</strong>
+                  </div>
+                  <time id="stageOneTime">-</time>
+                </div>
+                <pre id="plannerBox" class="stage-box">等待第一段输出。</pre>
+              </article>
+              <article class="stage-card">
+                <div class="stage-head">
+                  <div>
+                    <span>第 2 段</span>
+                    <strong>最终回答与 JSON</strong>
+                  </div>
+                  <time id="stageTwoTime">-</time>
+                </div>
+                <pre id="rendererBox" class="stage-box">等待第二段输出。</pre>
+              </article>
+            </div>
             <pre id="answerBox" class="answer-box">还没有结果。</pre>
+            <div id="readerBox" class="reader-output" hidden></div>
           </section>
 
           <aside class="panel">

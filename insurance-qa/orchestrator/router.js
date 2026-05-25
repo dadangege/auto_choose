@@ -69,6 +69,16 @@ function splitIntents(query) {
       index: firstIndex(q, /投保|参保|能买吗|能不能买|怎么买|投保范围|人群|资格|保费|等待期|保险期间/),
     },
     {
+      type: "version_comparison",
+      label: "版本差异部分",
+      index: firstIndex(q, /版本差异|三版差异|有什么区别|哪个版本|普通版.*关爱版|普通版.*新市民版|关爱版.*新市民版/),
+    },
+    {
+      type: "exclusion",
+      label: "免责限制部分",
+      index: firstIndex(q, /免责|除外责任|责任免除|不承担|不能赔|不赔|耐药|慈善援助/),
+    },
+    {
       type: "coverage_explanation",
       label: "保障责任部分",
       index: firstIndex(q, /保障责任|保险责任|责任都有什么|保障都有什么|保什么|保障范围|保额|等待期|除外责任|免责条款/),
@@ -104,4 +114,3 @@ module.exports = {
   selectPolicy,
   splitIntents,
 };
-

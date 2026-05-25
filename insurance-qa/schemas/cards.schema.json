@@ -9,7 +9,12 @@
     { "$ref": "#/$defs/policyselectcard" },
     { "$ref": "#/$defs/materialcard" },
     { "$ref": "#/$defs/hospitalcard" },
-    { "$ref": "#/$defs/enrollmentcard" }
+    { "$ref": "#/$defs/enrollmentcard" },
+    { "$ref": "#/$defs/versioncomparecard" },
+    { "$ref": "#/$defs/drugcheckcard" },
+    { "$ref": "#/$defs/evidencecard" },
+    { "$ref": "#/$defs/nextstepcard" },
+    { "$ref": "#/$defs/exclusioncard" }
   ],
   "$defs": {
     "condition": {
@@ -112,7 +117,64 @@
         "notes": { "type": "array", "items": { "type": "string" } }
       },
       "additionalProperties": true
+    },
+    "versioncomparecard": {
+      "type": "object",
+      "required": ["type", "title", "versions"],
+      "properties": {
+        "type": { "const": "versioncomparecard" },
+        "title": { "type": "string" },
+        "versions": { "type": "array", "items": { "type": "object" } },
+        "notes": { "type": "array", "items": { "type": "string" } },
+        "source_anchors": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": true
+    },
+    "drugcheckcard": {
+      "type": "object",
+      "required": ["type", "title", "checks"],
+      "properties": {
+        "type": { "const": "drugcheckcard" },
+        "title": { "type": "string" },
+        "drug_name": { "type": "string" },
+        "directory_status": { "type": "string" },
+        "policy_version": { "type": "string" },
+        "checks": { "type": "array", "items": { "type": "object" } },
+        "source_anchors": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": true
+    },
+    "evidencecard": {
+      "type": "object",
+      "required": ["type", "title", "anchors"],
+      "properties": {
+        "type": { "const": "evidencecard" },
+        "title": { "type": "string" },
+        "anchors": { "type": "array", "items": { "type": "object" } }
+      },
+      "additionalProperties": true
+    },
+    "nextstepcard": {
+      "type": "object",
+      "required": ["type", "title", "items"],
+      "properties": {
+        "type": { "const": "nextstepcard" },
+        "title": { "type": "string" },
+        "items": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": true
+    },
+    "exclusioncard": {
+      "type": "object",
+      "required": ["type", "title", "reason"],
+      "properties": {
+        "type": { "const": "exclusioncard" },
+        "title": { "type": "string" },
+        "reason": { "type": "string" },
+        "exclusions": { "type": "array", "items": { "type": "string" } },
+        "source_anchors": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": true
     }
   }
 }
-

@@ -77,6 +77,7 @@ The browser UI supports:
 
 - Fast Wiki mode
 - Full Skill mode
+- Two-stage planning/rendering mode
 - Streaming MiniMax output
 - Timing statistics
 - Visual card rendering
@@ -104,3 +105,6 @@ python3 -m json.tool insurance-qa/schemas/cards.schema.json >/dev/null
 
 See [docs/PRODUCT_SPEC.md](docs/PRODUCT_SPEC.md).
 
+## Progress Notes
+
+- [2026-05-25 evening progress](docs/PROGRESS_2026-05-25.md)

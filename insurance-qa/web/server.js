@@ -2,7 +2,7 @@
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
-const { buildPrompt, routePreview } = require("../orchestrator");
+const { buildPrompt, buildTwoStagePrompts, routePreview } = require("../orchestrator");
 
 const PUBLIC_DIR = path.join(__dirname, "public");
 const PORT = Number(process.env.PORT || 4173);
@@ -91,7 +91,7 @@ function parseChatBody(body) {
   const baseUrl = String(body.baseUrl || DEFAULT_BASE_URL).trim().replace(/\/+$/, "");
   const model = String(body.model || DEFAULT_MODEL).trim();
   const query = String(body.query || "").trim();
-  const promptMode = body.promptMode === "full" ? "full" : "wiki";
+  const promptMode = ["wiki", "full", "report", "two_stage"].includes(body.promptMode) ? body.promptMode : "wiki";
   const temperature = Number.isFinite(Number(body.temperature)) ? Number(body.temperature) : 0.2;
   return { apiKey, baseUrl, model, query, promptMode, temperature };
 }
@@ -103,7 +103,7 @@ function validateChatInput(input) {
   return null;
 }
 
-function chatPayload(input, promptBundle, stream) {
+function chatPayload(input, promptBundle, stream, maxCompletionTokens = 2048) {
   return {
     model: input.model,
     messages: [
@@ -111,8 +111,170 @@ function chatPayload(input, promptBundle, stream) {
       { role: "user", content: input.query },
     ],
     temperature: input.temperature,
-    max_completion_tokens: 2048,
+    max_completion_tokens: maxCompletionTokens,
     stream,
+  };
+}
+
+function upstreamError(status, detail) {
+  const error = new Error("MiniMax 请求失败。");
+  error.isUpstream = true;
+  error.status = status;
+  error.detail = detail;
+  return error;
+}
+
+async function requestCompletionText(input, promptBundle, maxCompletionTokens = 2048) {
+  const upstream = await fetch(`${input.baseUrl}/chat/completions`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${input.apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(chatPayload(input, promptBundle, false, maxCompletionTokens)),
+  });
+  const responseText = await upstream.text();
+  let responseJson;
+  try {
+    responseJson = JSON.parse(responseText);
+  } catch {
+    responseJson = { raw: responseText };
+  }
+
+  if (!upstream.ok) {
+    throw upstreamError(upstream.status, responseJson);
+  }
+
+  return {
+    content: stripThinking(responseJson?.choices?.[0]?.message?.content || ""),
+    usage: responseJson.usage || null,
+    model: responseJson.model || input.model,
+  };
+}
+
+function combineTwoStageProfile(plannerProfile, rendererProfile) {
+  return {
+    ...rendererProfile,
+    mode: "two_stage",
+    label: "两段式编排",
+    charCount: (plannerProfile?.charCount || 0) + (rendererProfile?.charCount || 0),
+    plannerCharCount: plannerProfile?.charCount || 0,
+    rendererCharCount: rendererProfile?.charCount || 0,
+    selectedSnippets: Array.from(new Set([
+      ...(plannerProfile?.selectedSnippets || []),
+      ...(rendererProfile?.selectedSnippets || []),
+    ])),
+  };
+}
+
+async function streamCompletionToSse(input, promptBundle, res, requestStartedAt) {
+  let finalContent = "";
+  let modelName = null;
+  let usage = null;
+  let firstDeltaAt = null;
+  let doneSeen = false;
+  const upstreamStartedAt = Date.now();
+
+  sseSend(res, "timing", {
+    name: "upstream_request_started",
+    ms: upstreamStartedAt - requestStartedAt,
+  });
+
+  const upstream = await fetch(`${input.baseUrl}/chat/completions`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${input.apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(chatPayload(input, promptBundle, true)),
+  });
+
+  sseSend(res, "timing", {
+    name: "upstream_headers",
+    ms: Date.now() - requestStartedAt,
+    upstreamStatus: upstream.status,
+  });
+
+  if (!upstream.ok) {
+    const responseText = await upstream.text();
+    let detail;
+    try {
+      detail = JSON.parse(responseText);
+    } catch {
+      detail = responseText;
+    }
+    sseSend(res, "error", {
+      error: "MiniMax 请求失败。",
+      status: upstream.status,
+      detail,
+    });
+    return { ok: false };
+  }
+
+  const reader = upstream.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  function handleSseBlock(block) {
+    const dataLines = block
+      .split(/\r?\n/)
+      .filter(line => line.startsWith("data:"))
+      .map(line => line.slice(5).trimStart());
+    if (!dataLines.length) return;
+
+    const dataText = dataLines.join("\n").trim();
+    if (!dataText) return;
+    if (dataText === "[DONE]") {
+      doneSeen = true;
+      return;
+    }
+
+    let chunk;
+    try {
+      chunk = JSON.parse(dataText);
+    } catch {
+      sseSend(res, "debug", { raw: dataText });
+      return;
+    }
+
+    if (chunk.model) modelName = chunk.model;
+    if (chunk.usage) usage = chunk.usage;
+
+    const deltaText = chunk.choices?.[0]?.delta?.content ?? chunk.choices?.[0]?.message?.content ?? "";
+    if (!deltaText) return;
+
+    if (!firstDeltaAt) {
+      firstDeltaAt = Date.now();
+      sseSend(res, "timing", {
+        name: "first_delta",
+        ms: firstDeltaAt - requestStartedAt,
+      });
+    }
+    finalContent += deltaText;
+    sseSend(res, "delta", { text: deltaText });
+  }
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const blocks = buffer.split(/\r?\n\r?\n/);
+    buffer = blocks.pop() || "";
+    for (const block of blocks) handleSseBlock(block);
+  }
+
+  buffer += decoder.decode();
+  if (buffer.trim()) handleSseBlock(buffer);
+
+  return {
+    ok: true,
+    finalContent,
+    modelName,
+    usage,
+    firstDeltaAt,
+    upstreamStartedAt,
+    finishedAt: Date.now(),
+    doneSeen,
   };
 }
 
@@ -125,45 +287,152 @@ async function handleChat(req, res) {
       return;
     }
 
-    const promptBundle = buildPrompt(input.query, input.promptMode);
     const startedAt = Date.now();
-    const upstream = await fetch(`${input.baseUrl}/chat/completions`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${input.apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(chatPayload(input, promptBundle, false)),
-    });
-    const responseText = await upstream.text();
-    let responseJson;
-    try {
-      responseJson = JSON.parse(responseText);
-    } catch {
-      responseJson = { raw: responseText };
-    }
-
-    if (!upstream.ok) {
-      jsonResponse(res, upstream.status, {
-        error: "MiniMax 请求失败。",
-        status: upstream.status,
-        detail: responseJson,
+    if (input.promptMode === "two_stage") {
+      const twoStage = buildTwoStagePrompts(input.query);
+      const plannerStartedAt = Date.now();
+      const plannerResult = await requestCompletionText(input, twoStage.planner, 1200);
+      const rendererStage = buildTwoStagePrompts(input.query, plannerResult.content);
+      const rendererStartedAt = Date.now();
+      const rendererResult = await requestCompletionText(input, rendererStage.renderer, 2048);
+      const promptProfile = combineTwoStageProfile(twoStage.planner.profile, rendererStage.renderer.profile);
+      jsonResponse(res, 200, {
+        content: rendererResult.content,
+        plannerContent: plannerResult.content,
+        usage: {
+          planner: plannerResult.usage,
+          renderer: rendererResult.usage,
+        },
+        model: rendererResult.model || plannerResult.model || input.model,
+        latencyMs: Date.now() - startedAt,
+        timings: {
+          plannerMs: rendererStartedAt - plannerStartedAt,
+          rendererMs: Date.now() - rendererStartedAt,
+        },
+        routePreview: twoStage.orchestration.route,
+        orchestration: twoStage.orchestration,
+        promptProfile,
       });
       return;
     }
 
+    const promptBundle = buildPrompt(input.query, input.promptMode);
+    const response = await requestCompletionText(input, promptBundle, 2048);
     jsonResponse(res, 200, {
-      content: stripThinking(responseJson?.choices?.[0]?.message?.content || ""),
-      usage: responseJson.usage || null,
-      model: responseJson.model || input.model,
+      content: response.content,
+      usage: response.usage,
+      model: response.model,
       latencyMs: Date.now() - startedAt,
       routePreview: promptBundle.orchestration.route,
       orchestration: promptBundle.orchestration,
       promptProfile: promptBundle.profile,
     });
   } catch (error) {
+    if (error.isUpstream) {
+      jsonResponse(res, error.status, {
+        error: error.message,
+        status: error.status,
+        detail: error.detail,
+      });
+      return;
+    }
     jsonResponse(res, 500, { error: error.message || "Server error." });
   }
+}
+
+async function handleTwoStageChatStream(input, res, requestStartedAt) {
+  const twoStage = buildTwoStagePrompts(input.query);
+  sseSend(res, "meta", {
+    routePreview: twoStage.orchestration.route,
+    orchestration: twoStage.orchestration,
+    promptProfile: twoStage.planner.profile,
+    timings: {
+      requestStartedAt,
+      promptBuiltMs: Date.now() - requestStartedAt,
+    },
+  });
+
+  const plannerStartedAt = Date.now();
+  sseSend(res, "stage", {
+    name: "planner_started",
+    label: "第一段结构草稿",
+    promptProfile: twoStage.planner.profile,
+  });
+
+  let plannerResult;
+  try {
+    plannerResult = await requestCompletionText(input, twoStage.planner, 1200);
+  } catch (error) {
+    if (error.isUpstream) {
+      sseSend(res, "error", {
+        error: error.message,
+        status: error.status,
+        detail: error.detail,
+      });
+    } else {
+      sseSend(res, "error", { error: error.message || "Server error." });
+    }
+    return;
+  }
+
+  const plannerFinishedAt = Date.now();
+  sseSend(res, "timing", {
+    name: "planner_done",
+    ms: plannerFinishedAt - requestStartedAt,
+    stageMs: plannerFinishedAt - plannerStartedAt,
+  });
+  sseSend(res, "stage", {
+    name: "planner_done",
+    label: "第一段草稿完成",
+    content: plannerResult.content,
+    model: plannerResult.model,
+    promptProfile: twoStage.planner.profile,
+    timings: {
+      stageMs: plannerFinishedAt - plannerStartedAt,
+      outputChars: plannerResult.content.length,
+    },
+  });
+
+  const rendererStage = buildTwoStagePrompts(input.query, plannerResult.content);
+  const promptProfile = combineTwoStageProfile(twoStage.planner.profile, rendererStage.renderer.profile);
+  sseSend(res, "stage", {
+    name: "renderer_started",
+    label: "第二段事实补齐",
+    promptProfile,
+  });
+
+  const streamResult = await streamCompletionToSse(input, rendererStage.renderer, res, requestStartedAt);
+  if (!streamResult.ok) return;
+
+  const finishedAt = streamResult.finishedAt;
+  sseSend(res, "done", {
+    content: stripThinking(streamResult.finalContent),
+    plannerContent: plannerResult.content,
+    model: streamResult.modelName || plannerResult.model || input.model,
+    usage: {
+      planner: plannerResult.usage,
+      renderer: streamResult.usage,
+    },
+    promptProfile,
+    routePreview: twoStage.orchestration.route,
+    orchestration: twoStage.orchestration,
+    timings: {
+      totalMs: finishedAt - requestStartedAt,
+      plannerMs: plannerFinishedAt - plannerStartedAt,
+      upstreamMs: streamResult.upstreamStartedAt ? finishedAt - streamResult.upstreamStartedAt : null,
+      rendererMs: streamResult.upstreamStartedAt ? finishedAt - streamResult.upstreamStartedAt : null,
+      firstDeltaMs: streamResult.firstDeltaAt ? streamResult.firstDeltaAt - requestStartedAt : null,
+      rendererFirstDeltaMs: streamResult.firstDeltaAt && streamResult.upstreamStartedAt
+        ? streamResult.firstDeltaAt - streamResult.upstreamStartedAt
+        : null,
+      promptChars: promptProfile.charCount,
+      plannerPromptChars: promptProfile.plannerCharCount,
+      rendererPromptChars: promptProfile.rendererCharCount,
+      plannerOutputChars: plannerResult.content.length,
+      outputChars: streamResult.finalContent.length,
+      doneSeen: streamResult.doneSeen,
+    },
+  });
 }
 
 async function handleChatStream(req, res) {
@@ -181,6 +450,12 @@ async function handleChatStream(req, res) {
     const validationError = validateChatInput(input);
     if (validationError) {
       sseSend(res, "error", { error: validationError });
+      res.end();
+      return;
+    }
+
+    if (input.promptMode === "two_stage") {
+      await handleTwoStageChatStream(input, res, requestStartedAt);
       res.end();
       return;
     }
@@ -272,6 +547,7 @@ async function handleChatStream(req, res) {
         sseSend(res, "timing", {
           name: "first_delta",
           ms: firstDeltaAt - requestStartedAt,
+          stageMs: firstDeltaAt - upstreamStartedAt,
         });
       }
       finalContent += deltaText;
@@ -349,4 +625,3 @@ const server = http.createServer((req, res) => {
 server.listen(PORT, () => {
   console.log(`Insurance QA tester: http://localhost:${PORT}`);
 });
-

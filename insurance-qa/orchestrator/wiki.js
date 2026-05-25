@@ -26,10 +26,12 @@ function retrieveWiki(rootDir, route) {
 
   for (const intent of route.intents) {
     if (intent.type === "coverage_explanation") selected.push("coverage");
+    if (intent.type === "version_comparison") selected.push("coverage", "enrollment");
     if (intent.type === "domestic_drug" || intent.type === "drug_prescription_duration") selected.push("drug");
     if (intent.type === "hospital_scope" || intent.type === "hospital_self_pay") selected.push("hospital");
     if (intent.type === "enrollment") selected.push("enrollment");
     if (intent.type === "claim_process" || intent.type === "materials" || intent.type === "hospital_self_pay") selected.push("claim");
+    if (intent.type === "exclusion") selected.push("exclusion");
   }
 
   selected.push("exclusion");
@@ -44,4 +46,3 @@ function retrieveWiki(rootDir, route) {
 module.exports = {
   retrieveWiki,
 };
-

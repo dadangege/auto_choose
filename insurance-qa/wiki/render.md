@@ -7,5 +7,9 @@ JSON 输出规则：
 - materialcard 字段：type=materialcard；claim_type；materials；missing_info。
 - enrollmentcard 字段：type=enrollmentcard；title；eligible_groups；requirements；notes。
 - hospitalcard 字段：type=hospitalcard；title；scopes；notes。
+- versioncomparecard 字段：type=versioncomparecard；title；versions；notes。
+- drugcheckcard 字段：type=drugcheckcard；title；drug_name；directory_status；policy_version；checks；source_anchors。
+- evidencecard 字段：type=evidencecard；title；anchors。
+- nextstepcard 字段：type=nextstepcard；title；items。
+- exclusioncard 字段：type=exclusioncard；title；reason；exclusions；source_anchors。
 - 如果估算赔付，加入 estimated_payment：claim_amount、deductible、pay_ratio、estimated_result、calculation_note。
-
