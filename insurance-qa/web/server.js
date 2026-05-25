@@ -355,7 +355,7 @@ async function handleTwoStageChatStream(input, res, requestStartedAt) {
   const plannerStartedAt = Date.now();
   sseSend(res, "stage", {
     name: "planner_started",
-    label: "第一段结构草稿",
+    label: "第一段回答编排草稿",
     promptProfile: twoStage.planner.profile,
   });
 
@@ -383,7 +383,7 @@ async function handleTwoStageChatStream(input, res, requestStartedAt) {
   });
   sseSend(res, "stage", {
     name: "planner_done",
-    label: "第一段草稿完成",
+    label: "第一段编排草稿完成",
     content: plannerResult.content,
     model: plannerResult.model,
     promptProfile: twoStage.planner.profile,

@@ -80,14 +80,16 @@ const cases = [
       const plannerOnly = buildPrompt("我买的是新市民版，保障责任都有什么。另外奥希替尼能不能报？", "two_stage");
       assert.equal(plannerOnly.profile.mode, "two_stage");
       assert.equal(plannerOnly.profile.stage, "planner");
-      assert(plannerOnly.prompt.includes("answer_plan"));
+      assert(plannerOnly.prompt.includes("Answer Architect"));
+      assert(plannerOnly.prompt.includes("只输出 Markdown 草稿"));
+      assert(plannerOnly.prompt.includes("drugcheckcard"));
 
       const twoStage = buildTwoStagePrompts(
         "我买的是新市民版，保障责任都有什么。另外奥希替尼能不能报？",
-        "{\"answer_plan\":{\"sections\":[]}}"
+        "# 回答编排草稿\n\n## 建议输出顺序\n1. 文字：先说明保障责任。\n2. 卡片：coveragecard。"
       );
-      assert(twoStage.renderer.prompt.includes("第一段结构化草稿计划"));
-      assert(twoStage.renderer.prompt.includes("内容 + json + 内容 + json"));
+      assert(twoStage.renderer.prompt.includes("第一段回答编排草稿"));
+      assert(twoStage.renderer.prompt.includes("每个文字段后紧跟对应 fenced json 卡片"));
       assert.equal(twoStage.renderer.profile.mode, "two_stage");
 
       const preview = routePreview("我买的是新市民版，保障责任都有什么。另外奥希替尼能不能报？");

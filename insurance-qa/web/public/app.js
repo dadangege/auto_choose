@@ -69,7 +69,7 @@ document.querySelectorAll("[data-case]").forEach(button => {
 
 copyButton.addEventListener("click", async () => {
   const splitText = !stageSplit.hidden
-    ? `【第一段结构草稿】\n${plannerBox.textContent || ""}\n\n【第二段最终输出】\n${rendererBox.textContent || ""}`.trim()
+    ? `【第一段回答编排草稿】\n${plannerBox.textContent || ""}\n\n【第二段最终输出】\n${rendererBox.textContent || ""}`.trim()
     : "";
   await navigator.clipboard.writeText(splitText || answerBox.textContent || "");
   copyButton.textContent = "已复制";
@@ -1068,8 +1068,8 @@ async function runRoutePreview() {
   if (currentPromptMode() === "two_stage") {
     showStageOutput();
     resetStageOutput();
-    plannerBox.textContent = "点「运行真实测试」后，这里显示第一段 LLM 的 answer_plan。";
-    rendererBox.textContent = "第二段会拿第一段草稿和 wiki 补齐最终回答。";
+    plannerBox.textContent = "点「运行真实测试」后，这里显示第一段 LLM 的回答编排草稿。";
+    rendererBox.textContent = "第二段会按第一段草稿的顺序，用 wiki 和规则补齐最终回答与 JSON。";
   } else {
     showPlainOutput(answerBox.textContent || "还没有结果。");
   }
@@ -1131,11 +1131,11 @@ async function runRealTest() {
       if (event === "stage") {
         if (data.name === "planner_started") {
           showStageOutput();
-          plannerBox.textContent = "正在生成回答方向、段落结构和卡片计划...";
+          plannerBox.textContent = "正在分析回答方向、段落结构和卡片插入位置...";
           rendererBox.textContent = "等待第一段完成后开始。";
           stageOneTime.textContent = "请求中";
           stageTwoTime.textContent = "-";
-          metaRow.textContent = "第一段：生成结构草稿";
+          metaRow.textContent = "第一段：生成回答编排草稿";
         }
         if (data.name === "planner_done") {
           plannerBox.textContent = data.content || "第一段未返回内容。";

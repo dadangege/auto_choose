@@ -152,56 +152,76 @@ ${joined}`;
 }
 
 function buildPlannerPrompt(rootDir, orchestration) {
-  const snippets = retrieveWiki(rootDir, orchestration.route);
-  const snippetHints = snippets
-    .map(({ name }) => `- wiki/${name}.md`)
-    .join("\n");
-  const prompt = `你是保险问答的第一段编排器。你的任务不是给最终答案，而是输出一个可复用的结构化草稿计划，供第二段模型基于 wiki 补齐事实和 JSON 卡片。
+  const domainNames = ["coverage", "drug", "hospital", "enrollment", "claim", "policy", "exclusion"];
+  const availableDomains = [
+    "coverage: 保障责任、保额、免赔额、赔付比例、责任边界",
+    "drug: 国内特药、海外药、CAR-T、目录、适应症、处方和购药限制",
+    "hospital: 医院范围、药店范围、治疗机构、购药渠道",
+    "enrollment: 投保资格、版本入口、保费、等待期、保障期间",
+    "claim: 理赔判断、估算、材料、流程、下一步",
+    "policy: 普通版、关爱版、新市民版的选择和差异",
+    "exclusion: 免责、除外责任、耐药、慈善援助、非保障情形",
+  ].map(item => `- ${item}`).join("\n");
+  const prompt = `你是保险问答的第一段 Answer Architect。你的任务不是回答用户，也不是补齐事实，而是根据用户问题设计最终回答的方向、结构和展示节奏。
 
-本地编排结果：
-${JSON.stringify(orchestrationPayload(orchestration))}
+你只需要知道可用的展示组件，并按问题需要自由编排。不要被固定 intent 或固定顺序束缚；如果用户一句话里有多个问题，你可以自行决定拆成几个回答段、每段后面插什么卡片。
 
-可用 wiki 域：
-${snippetHints}
+可用展示组件：
+- summary_block：开头直接结论，适合先说用户最关心的答案。
+- text_block：普通解释文字，适合承接上下文、解释边界、提示风险。
+- clarification_block：需要用户补充版本、材料、医院、适应症等信息时使用。
+- coveragecard：保障责任、保额、免赔额、核心限制。
+- claimcard：理赔支持状态、估算赔付、判断理由、待确认条件。
+- drugcheckcard：药品目录、适应症、处方医生、购药渠道、医保报销、慈善援助或耐药。
+- hospitalcard：医院、药店、治疗机构或购买渠道范围。
+- enrollmentcard：投保资格、版本入口、保费、等待期、保障期间。
+- materialcard：理赔材料、申请流程、办理步骤。
+- versioncomparecard：普通版、关爱版、新市民版差异。
+- evidencecard：关键事实和证据锚点。
+- nextstepcard：下一步要问用户什么、要准备什么、如何继续判断。
+- exclusioncard：免责、限制、不支持或高风险边界。
 
-只输出一个 JSON 对象，不要 Markdown，不要解释，不要输出思考过程。JSON 结构如下：
-{
-  "answer_plan": {
-    "question_summary": "一句话概括用户问题",
-    "global_context": ["已确认的产品版本、既往症、医保结算等共享条件"],
-    "sections": [
-      {
-        "intent": "route.intents 中的 intent type",
-        "display_title": "给用户看的段落标题",
-        "answer_direction": "这一段最终应该回答什么",
-        "must_cover": ["必须覆盖的事实、限制、待确认点"],
-        "card_sequence": ["先输出哪些卡片类型"],
-        "required_json_fields": {
-          "card_type": ["第二段必须补齐的字段名"]
-        },
-        "wiki_needed": ["需要检索的 wiki 文件名"],
-        "missing_info": ["仍需用户补充的信息；没有则空数组"]
-      }
-    ],
-    "rendering_rule": "最终回答必须按 内容 + json + 内容 + json 的相邻顺序输出"
-  }
-}
+可用知识域：
+${availableDomains}
 
-编排要求：
-1. sections 必须和 route.intents 顺序一致。
-2. 每个 section 优先采用 cardPlan.sections 中的 primary_card 与 supporting_cards。
-3. 不要制造本地编排结果里没有的赔付比例、药品结论或医院范围。
-4. 如果某个 intent 信息不足，只在 missing_info 标注，不要阻塞其他 intent。`;
+输出要求：
+1. 只输出 Markdown 草稿，不要输出 JSON，不要 fenced code block。
+2. 草稿要清楚表达：用户到底问了什么、回答应该往哪个方向展开、建议按什么顺序展示、每张卡片承担什么任务、哪些字段或事实需要第二段补齐。
+3. 你可以输出“文字 + 卡片 + 文字 + 卡片 + 文字”的任意组合，格式由你根据问题判断。
+4. 不要写最终事实结论；涉及赔付比例、保额、药品目录、适应症、医院范围时，只写“第二段需核验/补齐”。
+5. 如果某一部分信息不足，不要阻塞其他部分；把它设计成待确认段或 nextstepcard。
+6. 最后给出一条渲染规则，说明第二段应按你的草稿顺序输出正文和对应 JSON 卡片。
+
+建议草稿格式：
+# 回答编排草稿
+
+## 用户问题理解
+- ...
+
+## 回答方向
+- ...
+
+## 建议输出顺序
+1. 文字：...
+2. 卡片：coveragecard，用途：...，第二段需补齐：...
+3. 文字：...
+4. 卡片：drugcheckcard，用途：...，第二段需补齐：...
+
+## 需要第二段补齐的信息
+- ...
+
+## 渲染规则
+- 每个文字段后紧跟对应 fenced JSON 卡片；不要把所有 JSON 集中放在最后。`;
 
   return {
     prompt,
-    snippets,
+    snippets: [],
     profile: {
       mode: "two_stage",
       stage: "planner",
       label: "两段式编排",
       charCount: prompt.length,
-      selectedSnippets: snippets.map(item => item.name),
+      selectedSnippets: domainNames,
       routePreview: orchestration.route,
     },
   };
@@ -211,9 +231,9 @@ function buildTwoStageRendererPrompt(rootDir, orchestration, answerPlan) {
   const snippets = retrieveWiki(rootDir, orchestration.route);
   const joined = snippets.map(({ name, text }) => `===== wiki:${name} =====\n${text}`).join("\n\n");
   const planText = typeof answerPlan === "string" ? answerPlan : JSON.stringify(answerPlan);
-  const prompt = `你是保险问答的第二段事实补齐与渲染器。你会收到第一段的结构化草稿计划、本地编排结果和命中的 wiki。请根据这些信息输出最终用户可读答案，并补齐 fenced JSON 卡片。
+  const prompt = `你是保险问答的第二段 Grounded Renderer。你会收到第一段的回答编排草稿、本地规则结果和命中的 wiki。请严格按草稿的展示顺序输出最终用户可读答案，并补齐 fenced JSON 卡片。
 
-第一段结构化草稿计划：
+第一段回答编排草稿：
 ${planText}
 
 本地编排结果：
@@ -222,14 +242,15 @@ ${JSON.stringify(orchestrationPayload(orchestration))}
 最终输出要求：
 1. 用中文 Markdown 回答用户。
 2. 不要输出第一段草稿，不要解释你的内部过程。
-3. 必须按 answer_plan.sections / route.intents 顺序输出。
-4. 多意图必须保持“内容 + json + 内容 + json”的相邻结构；不要把所有内容汇总后再集中输出 JSON。
-5. 每个意图先给 1-3 句直接解释，再紧跟该意图自己的 fenced json。
-6. JSON 卡片字段必须符合 wiki/render.md 和 cardPlan；缺字段时从 wiki、ruleResults、slots 中补齐。
+3. 第一段只决定表达结构，不是事实来源；事实必须服从本地编排结果和 wiki。
+4. 尽量按第一段草稿的“文字 + 卡片 + 文字 + 卡片”顺序输出；如果草稿和本地规则冲突，以本地规则/wiki 为准，但保持相近的展示节奏。
+5. 每个文字段后紧跟对应 fenced json 卡片；不要把所有内容汇总后再集中输出 JSON。
+6. JSON 卡片字段必须符合 wiki/render.md；缺字段时从 wiki、ruleResults、slots 中补齐。
 7. 如果依据不足，卡片状态用“待确认”，不要编造确定赔付结论。
-8. 对药品问题必须覆盖目录、适应症、处方医生、购药渠道、慈善援助/耐药/医保报销等限制中与问题相关的部分。
-9. 对理赔问题必须覆盖免赔额、赔付比例、医保/互助帮困前置、既往症或待确认信息。
-10. 不要输出思考过程，不要虚构未提供的条款、金额、比例或医疗事实。
+8. 如果第一段选择了不合适的卡片类型，可以换成更合适的可渲染卡片，但要保留第一段的回答意图。
+9. 对药品问题必须覆盖目录、适应症、处方医生、购药渠道、慈善援助/耐药/医保报销等限制中与问题相关的部分。
+10. 对理赔问题必须覆盖免赔额、赔付比例、医保/互助帮困前置、既往症或待确认信息。
+11. 不要输出思考过程，不要虚构未提供的条款、金额、比例或医疗事实。
 
 ${joined}`;
 
