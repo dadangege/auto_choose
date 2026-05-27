@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 const assert = require("assert");
-const { orchestrate, buildPrompt, buildTwoStagePrompts, routePreview } = require("../orchestrator");
+const { orchestrate, buildPrompt, buildTwoStagePrompts, evidencePreview, routePreview } = require("../orchestrator");
 
 const cases = [
   {
@@ -94,6 +94,20 @@ const cases = [
 
       const preview = routePreview("我买的是新市民版，保障责任都有什么。另外奥希替尼能不能报？");
       assert.equal(preview.promptProfiles.two_stage.label, "两段式编排");
+    },
+  },
+  {
+    name: "evidence_preview_uses_policy_anchors",
+    query: "我买的是新市民版，住院自费3万，没走当地医保，我不是既往症。另外奥希替尼能不能报？",
+    check(result) {
+      const evidence = evidencePreview(result.query);
+      const ids = evidence.anchors.map(anchor => anchor.id);
+      assert(ids.includes("R001"));
+      assert(ids.includes("R002"));
+      assert(ids.includes("D001"));
+      assert(ids.includes("D002"));
+      assert.equal(evidence.summary.section_count, 2);
+      assert.equal(evidence.sections[1].anchors.some(anchor => anchor.applies_to.includes("drugcheckcard.directory_status")), true);
     },
   },
   {

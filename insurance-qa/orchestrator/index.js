@@ -4,6 +4,7 @@ const { extractSlots } = require("./slot-extractor");
 const { evaluateRules } = require("./rules");
 const { validateCards } = require("./validator");
 const { buildCardPlan } = require("./card-planner");
+const { buildEvidenceView } = require("./evidence-bank");
 const {
   buildFullPrompt,
   buildPlannerPrompt,
@@ -87,9 +88,15 @@ function routePreview(query) {
   };
 }
 
+function evidencePreview(query, cards = []) {
+  const orchestration = orchestrate(query);
+  return buildEvidenceView(orchestration, cards);
+}
+
 module.exports = {
   buildPrompt,
   buildTwoStagePrompts,
+  evidencePreview,
   orchestrate,
   routePreview,
 };

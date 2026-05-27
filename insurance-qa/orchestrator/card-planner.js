@@ -1,3 +1,5 @@
+const { getEvidenceFact } = require("./evidence-bank");
+
 function versionCompareCard() {
   return {
     type: "versioncomparecard",
@@ -24,22 +26,10 @@ function versionCompareCard() {
 }
 
 function evidenceCard(title, anchors) {
-  const facts = {
-    P001: "普通版、关爱版、新市民版入口人群不同。",
-    P002: "泛称沪惠保不能默认成普通版。",
-    C001: "主要责任包括住院自费、国内特药、质子重离子、海外特殊药品、CAR-T。",
-    C002: "住院及国内特药保额100万；质子重离子30万；海外特殊药品30万；CAR-T 50万。",
-    R001: "住院责任基础免赔额按12000元估算，连续投保无理赔可能降低。",
-    R002: "新市民版未走当地医保时，非既往症20%，既往症10%。",
-    D001: "泰瑞沙/甲磺酸奥希替尼片在三版国内特定高额药品目录中。",
-    D002: "奥希替尼仍需核适应病种、适应症、处方医生、购药渠道、医保报销、慈善援助和耐药。",
-    H001: "不同责任对应不同医院、药店或治疗机构范围。",
-    E001: "国内特药和海外特殊药品每次处方超过一个月以上部分不承担给付责任。",
-  };
   return {
     type: "evidencecard",
     title,
-    anchors: anchors.map(id => ({ id, fact: facts[id] || "待补充来源事实" })),
+    anchors: anchors.map(id => ({ id, fact: getEvidenceFact(id) })),
   };
 }
 

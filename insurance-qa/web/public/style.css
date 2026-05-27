@@ -80,6 +80,13 @@ button {
   gap: 14px;
 }
 
+.panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
 h1,
 h2,
 h3,
@@ -601,6 +608,109 @@ button:focus-visible {
   margin: 0;
   padding: 12px;
   background: #fbfdfc;
+}
+
+.evidence-panel {
+  margin-top: 14px;
+}
+
+.evidence-view {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.evidence-summary,
+.evidence-section,
+.evidence-source {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #ffffff;
+  padding: 12px;
+}
+
+.evidence-summary strong {
+  display: block;
+  color: var(--text);
+  font-size: 14px;
+}
+
+.evidence-summary p,
+.evidence-job,
+.evidence-note {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.evidence-section-head,
+.evidence-source-head,
+.evidence-card-row,
+.evidence-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.evidence-section-head span,
+.evidence-source-head strong {
+  display: inline-flex;
+  min-width: 30px;
+  min-height: 30px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #e4f4ee;
+  color: var(--primary-strong);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.evidence-section-head strong {
+  color: var(--text);
+  font-size: 15px;
+}
+
+.evidence-card-row {
+  margin-top: 10px;
+}
+
+.evidence-card-row span,
+.evidence-meta span,
+.evidence-source-head span {
+  display: inline-flex;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 26px;
+  align-items: center;
+  border-radius: 999px;
+  background: #eef3f1;
+  color: #34413e;
+  padding: 4px 9px;
+  font-size: 12px;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.evidence-source-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.evidence-fact {
+  margin-top: 8px;
+  color: #243430;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.evidence-meta {
+  margin-top: 8px;
 }
 
 .reader-output {
@@ -1457,7 +1567,8 @@ button:focus-visible {
 
   .brand-row,
   .result-header,
-  .button-row {
+  .button-row,
+  .panel-actions {
     align-items: stretch;
     flex-direction: column;
   }

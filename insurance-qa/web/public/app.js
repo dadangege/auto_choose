@@ -32,6 +32,13 @@ const plannerBox = document.querySelector("#plannerBox");
 const rendererBox = document.querySelector("#rendererBox");
 const stageOneTime = document.querySelector("#stageOneTime");
 const stageTwoTime = document.querySelector("#stageTwoTime");
+const evidenceButton = document.querySelector("#evidenceButton");
+const evidencePanel = document.querySelector("#evidencePanel");
+const evidenceList = document.querySelector("#evidenceList");
+const evidenceCount = document.querySelector("#evidenceCount");
+
+let latestEvidenceCards = [];
+let evidenceLoaded = false;
 
 const flowLabels = {
   hospital_self_pay: "住院自费",
@@ -81,6 +88,7 @@ copyButton.addEventListener("click", async () => {
 previewButton.addEventListener("click", runRoutePreview);
 demoButton.addEventListener("click", renderDemoCards);
 readoutButton.addEventListener("click", renderProductReadout);
+evidenceButton.addEventListener("click", toggleEvidencePanel);
 
 document.querySelectorAll("input[name='promptMode']").forEach(input => {
   input.addEventListener("change", runRoutePreview);
@@ -136,6 +144,27 @@ function showError(message, detail) {
 function clearError() {
   errorPanel.hidden = true;
   errorBox.textContent = "";
+}
+
+function resetEvidenceView() {
+  latestEvidenceCards = [];
+  evidenceLoaded = false;
+  evidenceButton.hidden = true;
+  evidenceButton.textContent = "查看依据";
+  evidencePanel.hidden = true;
+  evidenceCount.textContent = "0";
+  evidenceList.className = "evidence-view empty";
+  evidenceList.textContent = "回答完成后点击「查看依据」。";
+}
+
+function enableEvidenceView(markdown) {
+  latestEvidenceCards = extractJsonBlocks(markdown)
+    .filter(block => block.ok)
+    .map(block => block.data);
+  evidenceLoaded = false;
+  evidenceButton.hidden = false;
+  evidenceButton.textContent = "查看依据";
+  evidencePanel.hidden = true;
 }
 
 function showPlainOutput(text) {
@@ -567,6 +596,103 @@ function renderPlan(routeData, note = "") {
   });
 }
 
+function renderEvidenceView(data) {
+  const sections = data.sections || [];
+  const anchors = data.anchors || [];
+  evidenceCount.textContent = String(data.summary?.anchor_count ?? anchors.length);
+  evidenceList.innerHTML = "";
+
+  if (!anchors.length && !sections.length) {
+    evidenceList.className = "evidence-view empty";
+    evidenceList.textContent = "没有找到可展示的依据锚点。";
+    return;
+  }
+
+  evidenceList.className = "evidence-view";
+  const summary = el("article", "evidence-summary");
+  const version = data.policy?.version || "待确认";
+  summary.append(
+    el("strong", "", `产品版本：${version}`),
+    el("p", "", data.summary?.note || "依据来自本地规则锚点。")
+  );
+  evidenceList.append(summary);
+
+  sections.forEach((section, index) => {
+    const block = el("article", "evidence-section");
+    const intentName = flowLabels[section.intent?.type] || section.intent?.label || section.intent?.type || `段落 ${index + 1}`;
+    const head = el("div", "evidence-section-head");
+    head.append(el("span", "", String(index + 1)), el("strong", "", intentName));
+    block.append(head);
+    if (section.answer_job) block.append(el("p", "evidence-job", section.answer_job));
+
+    const cardRow = el("div", "evidence-card-row");
+    if (section.primary_card_type) {
+      cardRow.append(el("span", "primary-chip", `主卡：${cardTypeLabels[section.primary_card_type] || section.primary_card_type}`));
+    }
+    (section.supporting_card_types || []).forEach(type => {
+      cardRow.append(el("span", "", cardTypeLabels[type] || type));
+    });
+    if (cardRow.children.length) block.append(cardRow);
+
+    const list = el("div", "evidence-source-list");
+    (section.anchors || []).forEach(anchor => list.append(renderEvidenceSource(anchor)));
+    block.append(list);
+    evidenceList.append(block);
+  });
+}
+
+function renderEvidenceSource(anchor) {
+  const item = el("article", "evidence-source");
+  const head = el("div", "evidence-source-head");
+  head.append(el("strong", "", anchor.id || "依据"), el("span", "", anchor.verified || "pending"));
+  item.append(head);
+  item.append(el("p", "evidence-fact", anchor.exact_fact || "待补充来源事实。"));
+  const meta = el("div", "evidence-meta");
+  meta.append(el("span", "", `来源：${anchor.source || "待绑定"}`));
+  meta.append(el("span", "", `条款：${anchor.clause || "待补充"}`));
+  if (Array.isArray(anchor.applies_to) && anchor.applies_to.length) {
+    meta.append(el("span", "", `字段：${anchor.applies_to.join("、")}`));
+  }
+  item.append(meta);
+  if (anchor.verification_note) item.append(el("p", "evidence-note", anchor.verification_note));
+  return item;
+}
+
+async function toggleEvidencePanel() {
+  if (!evidencePanel.hidden && evidenceLoaded) {
+    evidencePanel.hidden = true;
+    evidenceButton.textContent = "查看依据";
+    return;
+  }
+
+  evidencePanel.hidden = false;
+  evidenceButton.textContent = "整理依据中...";
+  evidenceButton.disabled = true;
+  evidenceList.className = "evidence-view empty";
+  evidenceList.textContent = "正在整理本地依据链...";
+  evidencePanel.scrollIntoView({ behavior: "smooth", block: "start" });
+
+  try {
+    const data = await postJson("/api/evidence", {
+      query: queryInput.value,
+      cards: latestEvidenceCards,
+    });
+    renderEvidenceView(data);
+    evidenceLoaded = true;
+    evidenceButton.textContent = "隐藏依据";
+    requestAnimationFrame(() => {
+      evidencePanel.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  } catch (error) {
+    evidenceList.className = "evidence-view empty";
+    evidenceList.textContent = "依据加载失败。";
+    evidenceButton.textContent = "查看依据";
+    showError(error.message);
+  } finally {
+    evidenceButton.disabled = false;
+  }
+}
+
 function renderDemoCards() {
   const demo = `保障责任部分：新市民版主要包含住院自费、国内特药、质子重离子、海外特殊药品和 CAR-T 治疗药品五项责任。三版责任名称大体一致，但住院理赔前置条件和部分比例不同。
 
@@ -618,6 +744,7 @@ function renderDemoCards() {
   renderCards(demo);
   metaRow.textContent = "卡片样式预览";
   resetStats();
+  resetEvidenceView();
   statMode.textContent = "预览";
   statOutput.textContent = `${demo.length} 字符`;
   renderPlan(null, "卡片预览是静态样例，不经过本地 cardPlan。");
@@ -926,6 +1053,7 @@ function renderProductReadout() {
   renderCards(markdown);
   metaRow.textContent = "产品解读样例";
   resetStats();
+  resetEvidenceView();
   statMode.textContent = "解读";
   statOutput.textContent = `${markdown.length} 字符`;
   renderPlan(null, "产品解读是静态展示样例，用来看报告 UI 和卡片形态；真实编排请点「只看路由」。");
@@ -1065,6 +1193,7 @@ async function postStream(url, payload, onEvent) {
 
 async function runRoutePreview() {
   clearError();
+  resetEvidenceView();
   if (currentPromptMode() === "two_stage") {
     showStageOutput();
     resetStageOutput();
@@ -1090,6 +1219,7 @@ async function runRealTest() {
   clearError();
   setLoading(true);
   resetStats();
+  resetEvidenceView();
   const twoStageMode = currentPromptMode() === "two_stage";
   if (twoStageMode) {
     showStageOutput();
@@ -1189,6 +1319,7 @@ async function runRealTest() {
           answerBox.textContent = content || "模型没有返回内容。";
         }
         renderCards(content || "");
+        enableEvidenceView(content || "");
         renderFlow(data.routePreview || route, true, data.timings?.totalMs, data.usage, data.promptProfile);
         renderPlan(data.orchestration || route);
         updatePromptInfo(route, data.promptProfile);
@@ -1210,6 +1341,7 @@ async function runRealTest() {
 
     if (!finalData && content) {
       renderCards(content);
+      enableEvidenceView(content);
       updateStats({ outputChars: content.length });
     }
   } catch (error) {

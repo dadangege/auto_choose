@@ -2,7 +2,7 @@
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
-const { buildPrompt, buildTwoStagePrompts, routePreview } = require("../orchestrator");
+const { buildPrompt, buildTwoStagePrompts, evidencePreview, routePreview } = require("../orchestrator");
 
 const PUBLIC_DIR = path.join(__dirname, "public");
 const PORT = Number(process.env.PORT || 4173);
@@ -600,6 +600,15 @@ async function handleRoute(req, res) {
   }
 }
 
+async function handleEvidence(req, res) {
+  try {
+    const body = await readJsonBody(req);
+    jsonResponse(res, 200, evidencePreview(body.query || "", body.cards || []));
+  } catch (error) {
+    jsonResponse(res, 500, { error: error.message || "Server error." });
+  }
+}
+
 const server = http.createServer((req, res) => {
   const pathname = new URL(req.url, "http://localhost").pathname;
   if (req.method === "POST" && pathname === "/api/chat-stream") {
@@ -612,6 +621,10 @@ const server = http.createServer((req, res) => {
   }
   if (req.method === "POST" && pathname === "/api/route") {
     handleRoute(req, res);
+    return;
+  }
+  if (req.method === "POST" && pathname === "/api/evidence") {
+    handleEvidence(req, res);
     return;
   }
   if (req.method === "GET") {

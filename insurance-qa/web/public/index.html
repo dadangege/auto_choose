@@ -195,7 +195,10 @@
           <section class="panel">
             <div class="panel-title">
               <h3 id="outputTitle">LLM 原文</h3>
-              <button class="small" id="copyButton" type="button">复制</button>
+              <div class="panel-actions">
+                <button class="small" id="evidenceButton" type="button" hidden>查看依据</button>
+                <button class="small" id="copyButton" type="button">复制</button>
+              </div>
             </div>
             <div id="stageSplit" class="stage-split" hidden>
               <article class="stage-card">
@@ -231,6 +234,14 @@
             <div id="cardList" class="card-list empty">等待模型输出 fenced JSON。</div>
           </aside>
         </div>
+
+        <section class="panel evidence-panel" id="evidencePanel" hidden>
+          <div class="panel-title">
+            <h3>依据链</h3>
+            <span id="evidenceCount">0</span>
+          </div>
+          <div id="evidenceList" class="evidence-view empty">回答完成后点击「查看依据」。</div>
+        </section>
 
         <section class="panel error-panel" id="errorPanel" hidden>
           <div class="panel-title">
